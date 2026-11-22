@@ -190,7 +190,7 @@ class DotaAnalyzerApplicationTests {
                         java.time.Instant.parse("2026-11-22T12:00:00Z"),
                         "Koneksi ke OpenDota API berhasil."
                 );
-        when(openDotaClient.checkApiConnection(null)).thenReturn(upStatus);
+        when(openDotaClient.checkApiConnection(null, null)).thenReturn(upStatus);
 
         mockMvc.perform(get("/api/health/opendota"))
                 .andExpect(status().isOk())
@@ -202,18 +202,57 @@ class DotaAnalyzerApplicationTests {
                 new com.dimas.dotaanalyzer.model.ApiHealthStatus(
                         "DOWN",
                         "https://api.opendota.com/api",
-                        "/players/395401593/recentMatches",
-                        null,
-                        30002L,
+                        "/players/395401593/peers",
+                        500,
+                        420L,
                         java.time.Instant.parse("2026-11-22T12:01:00Z"),
-                        "Koneksi atau timeout ke OpenDota API: Request timed out"
+                        "OpenDota API merespons dengan HTTP 500: Internal Server Error"
                 );
-        when(openDotaClient.checkApiConnection(395401593L)).thenReturn(downStatus);
+        when(openDotaClient.checkApiConnection(395401593L, "peers")).thenReturn(downStatus);
 
-        mockMvc.perform(get("/api/health/opendota").param("accountId", "395401593"))
+        mockMvc.perform(get("/api/health/opendota")
+                        .param("accountId", "395401593")
+                        .param("endpoint", "peers"))
                 .andExpect(status().isServiceUnavailable())
                 .andExpect(content().contentTypeCompatibleWith("application/json"))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("\"status\":\"DOWN\"")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("/players/395401593/recentMatches")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("/players/395401593/peers")));
+    }
+
+    @Test
+    void dashboardGracefullyDegradesWhenPeersEndpointReturnsServerError() throws Exception {
+        long accountId = 395401593L;
+        PlayerProfile profile = new PlayerProfile(
+                new PlayerProfile.Profile(accountId, "DimasMid", null, null, "ID"),
+                53,
+                null
+        );
+        List<RecentMatch> matches = List.of(
+                new RecentMatch(9999L, 0, true, 2100, 22, 7, 1, 1730000000L, 14, 3, 9, 680, 750, 1)
+        );
+        Map<Integer, HeroInfo> heroes = Map.of(
+                1, new HeroInfo(1, "npc_dota_hero_antimage", "Anti-Mage", "agi", "Melee",
+                        List.of("Carry"), "/apps/dota2/images/dota_react/heroes/antimage.png", null)
+        );
+
+        when(openDotaClient.fetchPlayerProfile(accountId)).thenReturn(profile);
+        when(openDotaClient.fetchRecentMatches(accountId)).thenReturn(matches);
+        when(openDotaClient.fetchPlayerPeers(accountId)).thenThrow(
+                new IllegalStateException("Server OpenDota API sedang mengalami gangguan (HTTP 500). Silakan coba lagi nanti."));
+        when(openDotaClient.fetchHeroes()).thenReturn(heroes);
+
+        DashboardViewModel vm = playerAnalyzerService.analyzePlayer(accountId);
+        assertThat(vm.recentMatches()).hasSize(1);
+        assertThat(vm.topPeers()).isEmpty();
+        assertThat(vm.hasWarnings()).isTrue();
+        assertThat(vm.warnings().get(0)).contains("Party Analyzer");
+
+        mockMvc.perform(get("/player/{id}", accountId))
+                .andExpect(status().isOk())
+                .andExpect(view().name("dashboard"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("DimasMid")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Anti-Mage")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Sebagian data OpenDota belum berhasil dimuat")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Muat Ulang Data")));
     }
 }

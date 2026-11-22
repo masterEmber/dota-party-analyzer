@@ -5,13 +5,18 @@ import com.dimas.dotaanalyzer.model.HeroInfo;
 import com.dimas.dotaanalyzer.model.PeerStat;
 import com.dimas.dotaanalyzer.model.PlayerProfile;
 import com.dimas.dotaanalyzer.model.RecentMatch;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class PlayerAnalyzerService {
+
+    private static final Logger log = LoggerFactory.getLogger(PlayerAnalyzerService.class);
 
     public static final int RECENT_MATCHES_LIMIT = 20;
     public static final int TOP_PEERS_LIMIT = 15;
@@ -33,12 +38,35 @@ public class PlayerAnalyzerService {
                             + " tidak ditemukan atau profil Match Data belum dibuka (Expose Public Match Data).");
         }
 
-        List<RecentMatch> recentMatches = openDotaClient.fetchRecentMatches(accountId).stream()
-                .limit(RECENT_MATCHES_LIMIT)
-                .toList();
+        List<String> warnings = new ArrayList<>();
 
-        List<PeerStat> allPeers = openDotaClient.fetchPlayerPeers(accountId);
-        Map<Integer, HeroInfo> heroes = heroService.getAllHeroes();
+        List<RecentMatch> recentMatches = List.of();
+        try {
+            recentMatches = openDotaClient.fetchRecentMatches(accountId).stream()
+                    .limit(RECENT_MATCHES_LIMIT)
+                    .toList();
+        } catch (IllegalStateException ex) {
+            log.warn("Degrading gracefully: failed to fetch recent matches for accountId={}: {}",
+                    accountId, ex.getMessage());
+            warnings.add("Riwayat 20 match terakhir gagal dimuat dari OpenDota: " + ex.getMessage());
+        }
+
+        List<PeerStat> allPeers = List.of();
+        try {
+            allPeers = openDotaClient.fetchPlayerPeers(accountId);
+        } catch (IllegalStateException ex) {
+            log.warn("Degrading gracefully: failed to fetch peers for accountId={}: {}",
+                    accountId, ex.getMessage());
+            warnings.add("Data teman mabar (Party Analyzer) gagal dimuat dari OpenDota: " + ex.getMessage());
+        }
+
+        Map<Integer, HeroInfo> heroes = Map.of();
+        try {
+            heroes = heroService.getAllHeroes();
+        } catch (IllegalStateException ex) {
+            log.warn("Degrading gracefully: failed to fetch hero constants: {}", ex.getMessage());
+            warnings.add("Daftar nama & gambar hero sementara menggunakan fallback ID: " + ex.getMessage());
+        }
 
         int totalRecentGames = recentMatches.size();
         int recentWins = (int) recentMatches.stream().filter(RecentMatch::isWin).count();
@@ -99,7 +127,8 @@ public class PlayerAnalyzerService {
                 avgAssists,
                 topPeers,
                 bestDuo,
-                cursedDuo
+                cursedDuo,
+                warnings
         );
     }
 }

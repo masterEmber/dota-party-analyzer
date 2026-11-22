@@ -9,6 +9,7 @@ import com.dimas.dotaanalyzer.model.RecentMatch;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -21,6 +22,7 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
@@ -30,7 +32,7 @@ import org.springframework.web.client.RestClientResponseException;
 public class OpenDotaClient {
 
     private static final Logger log = LoggerFactory.getLogger(OpenDotaClient.class);
-    private static final long RETRY_BACKOFF_MS = 500L;
+    private static final long RETRY_BACKOFF_MS = 750L;
 
     private final RestClient restClient;
     private final String baseUrl;
@@ -100,10 +102,8 @@ public class OpenDotaClient {
         });
     }
 
-    public ApiHealthStatus checkApiConnection(Long accountId) {
-        String endpoint = (accountId != null && accountId > 0)
-                ? "/players/" + accountId + "/recentMatches"
-                : "/status";
+    public ApiHealthStatus checkApiConnection(Long accountId, String endpointType) {
+        String endpoint = resolveHealthEndpoint(accountId, endpointType);
         Instant checkedAt = Instant.now();
         long startNanos = System.nanoTime();
 
@@ -164,16 +164,28 @@ public class OpenDotaClient {
         }
     }
 
+    private String resolveHealthEndpoint(Long accountId, String endpointType) {
+        if (accountId == null || accountId <= 0) {
+            return "/status";
+        }
+        String normalized = endpointType == null ? "" : endpointType.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "profile" -> "/players/" + accountId;
+            case "peers" -> "/players/" + accountId + "/peers";
+            default -> "/players/" + accountId + "/recentMatches";
+        };
+    }
+
     private <T> T executeWithRetry(String action, Supplier<T> supplier) {
         int attempts = 0;
         while (true) {
             attempts++;
             try {
                 return supplier.get();
-            } catch (ResourceAccessException ex) {
+            } catch (ResourceAccessException | HttpServerErrorException ex) {
                 if (attempts <= maxRetries) {
-                    log.warn("Timeout/IO error saat {} (percobaan {}/{}), mencoba ulang...",
-                            action, attempts, maxRetries + 1);
+                    log.warn("Transient error saat {} (percobaan {}/{}): {}. Mencoba ulang...",
+                            action, attempts, maxRetries + 1, ex.getMessage());
                     sleepBackoff();
                     continue;
                 }

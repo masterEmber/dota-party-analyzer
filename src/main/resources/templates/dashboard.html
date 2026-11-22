@@ -192,6 +192,27 @@
     <!-- Player Dashboard Content -->
     <div th:if="${dashboard != null}" class="space-y-6 sm:space-y-8">
 
+        <!-- Partial Degradation Warning (when OpenDota 5xx/timeout hits secondary endpoint) -->
+        <div th:if="${dashboard.hasWarnings()}"
+             role="status"
+             class="rounded-xl border border-[#6B4E1B] bg-[#2B2112] p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="space-y-1.5 min-w-0">
+                <p class="text-sm font-bold text-[#FCD385]">
+                    Peringatan: Sebagian data OpenDota belum berhasil dimuat
+                </p>
+                <ul class="list-disc pl-5 text-xs sm:text-sm text-[#F3F5F8] space-y-1">
+                    <li th:each="warning : ${dashboard.warnings()}" th:text="${warning}">
+                        Sebagian data gagal dimuat dari OpenDota.
+                    </li>
+                </ul>
+            </div>
+            <a th:href="@{/player/{id}(id=${dashboard.accountId()})}"
+               data-player-link="true"
+               class="min-h-[44px] inline-flex items-center justify-center px-4 py-2 rounded-lg bg-accent hover:bg-accent-hover active:bg-[#D18316] text-[#0D1117] font-semibold text-sm transition-colors shrink-0">
+                Muat Ulang Data
+            </a>
+        </div>
+
         <!-- Section 1: Asymmetric Profile + 20-Match Scoreboard -->
         <section aria-label="Profil pemain dan ringkasan 20 match terakhir"
                  class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.55fr)] gap-5">

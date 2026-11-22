@@ -72,8 +72,9 @@ public class DashboardController {
     @GetMapping(value = "/api/health/opendota", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseBody
     public ResponseEntity<ApiHealthStatus> checkOpenDotaConnection(
-            @RequestParam(name = "accountId", required = false) Long accountId) {
-        ApiHealthStatus health = openDotaClient.checkApiConnection(accountId);
+            @RequestParam(name = "accountId", required = false) Long accountId,
+            @RequestParam(name = "endpoint", required = false) String endpoint) {
+        ApiHealthStatus health = openDotaClient.checkApiConnection(accountId, endpoint);
         HttpStatus httpStatus = health.isUp() ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE;
         return ResponseEntity.status(httpStatus).body(health);
     }

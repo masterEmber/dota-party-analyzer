@@ -18,20 +18,26 @@ public record DashboardViewModel(
         double avgAssists,
         List<PeerStat> topPeers,
         PeerStat bestDuo,
-        PeerStat cursedDuo
+        PeerStat cursedDuo,
+        List<String> warnings
 ) {
+    public DashboardViewModel {
+        recentMatches = recentMatches != null ? recentMatches : List.of();
+        heroes = heroes != null ? heroes : Map.of();
+        topPeers = topPeers != null ? topPeers : List.of();
+        warnings = warnings != null ? List.copyOf(warnings) : List.of();
+    }
+
+    public boolean hasWarnings() {
+        return !warnings.isEmpty();
+    }
+
     public String heroName(int heroId) {
-        if (heroes == null) {
-            return "Hero #" + heroId;
-        }
         HeroInfo info = heroes.get(heroId);
         return info != null ? info.localizedName() : "Hero #" + heroId;
     }
 
     public String heroImageUrl(int heroId) {
-        if (heroes == null) {
-            return "";
-        }
         HeroInfo info = heroes.get(heroId);
         return info != null ? info.imageUrl() : "";
     }
