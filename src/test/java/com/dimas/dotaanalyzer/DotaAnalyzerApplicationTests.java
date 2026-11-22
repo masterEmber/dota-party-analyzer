@@ -177,4 +177,43 @@ class DotaAnalyzerApplicationTests {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("fetchpriority=\"high\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\u2014"))));
     }
+
+    @Test
+    void openDotaHealthEndpointReturnsUpAndDownStatuses() throws Exception {
+        com.dimas.dotaanalyzer.model.ApiHealthStatus upStatus =
+                new com.dimas.dotaanalyzer.model.ApiHealthStatus(
+                        "UP",
+                        "https://api.opendota.com/api",
+                        "/status",
+                        200,
+                        185L,
+                        java.time.Instant.parse("2026-11-22T12:00:00Z"),
+                        "Koneksi ke OpenDota API berhasil."
+                );
+        when(openDotaClient.checkApiConnection(null)).thenReturn(upStatus);
+
+        mockMvc.perform(get("/api/health/opendota"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"status\":\"UP\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"testedEndpoint\":\"/status\"")));
+
+        com.dimas.dotaanalyzer.model.ApiHealthStatus downStatus =
+                new com.dimas.dotaanalyzer.model.ApiHealthStatus(
+                        "DOWN",
+                        "https://api.opendota.com/api",
+                        "/players/395401593/recentMatches",
+                        null,
+                        30002L,
+                        java.time.Instant.parse("2026-11-22T12:01:00Z"),
+                        "Koneksi atau timeout ke OpenDota API: Request timed out"
+                );
+        when(openDotaClient.checkApiConnection(395401593L)).thenReturn(downStatus);
+
+        mockMvc.perform(get("/api/health/opendota").param("accountId", "395401593"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(content().contentTypeCompatibleWith("application/json"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"status\":\"DOWN\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("/players/395401593/recentMatches")));
+    }
 }

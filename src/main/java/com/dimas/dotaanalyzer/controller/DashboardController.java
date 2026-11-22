@@ -1,14 +1,20 @@
 package com.dimas.dotaanalyzer.controller;
 
+import com.dimas.dotaanalyzer.model.ApiHealthStatus;
 import com.dimas.dotaanalyzer.model.DashboardViewModel;
+import com.dimas.dotaanalyzer.service.OpenDotaClient;
 import com.dimas.dotaanalyzer.service.PlayerAnalyzerService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 @Controller
 public class DashboardController {
@@ -16,9 +22,11 @@ public class DashboardController {
     private static final Logger log = LoggerFactory.getLogger(DashboardController.class);
 
     private final PlayerAnalyzerService playerAnalyzerService;
+    private final OpenDotaClient openDotaClient;
 
-    public DashboardController(PlayerAnalyzerService playerAnalyzerService) {
+    public DashboardController(PlayerAnalyzerService playerAnalyzerService, OpenDotaClient openDotaClient) {
         this.playerAnalyzerService = playerAnalyzerService;
+        this.openDotaClient = openDotaClient;
     }
 
     @GetMapping("/")
@@ -59,5 +67,14 @@ public class DashboardController {
             model.addAttribute("errorMessage", ex.getMessage());
         }
         return "dashboard";
+    }
+
+    @GetMapping(value = "/api/health/opendota", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseBody
+    public ResponseEntity<ApiHealthStatus> checkOpenDotaConnection(
+            @RequestParam(name = "accountId", required = false) Long accountId) {
+        ApiHealthStatus health = openDotaClient.checkApiConnection(accountId);
+        HttpStatus httpStatus = health.isUp() ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE;
+        return ResponseEntity.status(httpStatus).body(health);
     }
 }

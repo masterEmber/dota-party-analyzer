@@ -10,8 +10,10 @@ spring:
 opendota:
   api:
     base-url: https://api.opendota.com/api
-    connect-timeout-seconds: 5
-    read-timeout-seconds: 10
+    connect-timeout-seconds: 10
+    read-timeout-seconds: 30
+    max-retries: 1
+    api-key: ${OPENDOTA_API_KEY:}
 
 logging:
   level:

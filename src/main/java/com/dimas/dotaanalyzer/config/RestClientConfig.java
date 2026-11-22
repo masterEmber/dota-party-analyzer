@@ -17,10 +17,12 @@ public class RestClientConfig {
     public RestClient openDotaRestClient(
             RestClient.Builder builder,
             @Value("${opendota.api.base-url:https://api.opendota.com/api}") String baseUrl,
-            @Value("${opendota.api.connect-timeout-seconds:5}") long connectTimeoutSeconds,
-            @Value("${opendota.api.read-timeout-seconds:10}") long readTimeoutSeconds) {
+            @Value("${opendota.api.connect-timeout-seconds:10}") long connectTimeoutSeconds,
+            @Value("${opendota.api.read-timeout-seconds:30}") long readTimeoutSeconds) {
 
         HttpClient httpClient = HttpClient.newBuilder()
+                .version(HttpClient.Version.HTTP_1_1)
+                .followRedirects(HttpClient.Redirect.NORMAL)
                 .connectTimeout(Duration.ofSeconds(connectTimeoutSeconds))
                 .build();
 
