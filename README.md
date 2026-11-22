@@ -15,11 +15,12 @@ Aplikasi web MVP sederhana berbasis **Spring Boot 3 + Thymeleaf (SSR)** untuk me
 
 ## Fitur MVP
 - Pencarian pemain via **Steam32 Account ID** (`GET /` dan `GET /player/{accountId}`)
-- Kartu profil pemain & konversi **Rank Tier** (Herald – Immortal)
+- Kartu profil pemain & konversi **Rank Tier** (Herald - Immortal)
 - Ringkasan **20 match terakhir** (Win/Loss, Win Rate %, rata-rata K/D/A)
 - Highlight **Best Duo** & **Cursed Duo** (minimal 5 game bersama)
-- Tabel **Party Analyzer** (Top 15 teman mabar)
+- Tabel **Party Analyzer** (Top 15 teman mabar) dan tampilan kartu responsif di mobile
 - Tabel **Recent Matches** lengkap dengan nama/ikon hero, KDA, GPM/XPM, durasi, party size, dan link ke OpenDota
+- Panduan arah desain & aksesibilitas terdokumentasi di [DESIGN.md](DESIGN.md)
 
 ## Menjalankan Aplikasi
 

@@ -126,7 +126,17 @@ class DotaAnalyzerApplicationTests {
     void dashboardControllerRoutesWork() throws Exception {
         mockMvc.perform(get("/"))
                 .andExpect(status().isOk())
-                .andExpect(view().name("dashboard"));
+                .andExpect(view().name("dashboard"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Langsung ke konten utama")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("for=\"accountId\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("role=\"status\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\u2014"))));
+
+        mockMvc.perform(get("/").param("accountId", "not-a-number"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("dashboard"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("role=\"alert\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("harus berupa angka positif")));
 
         mockMvc.perform(get("/").param("accountId", "86745912"))
                 .andExpect(status().is3xxRedirection())
@@ -134,19 +144,37 @@ class DotaAnalyzerApplicationTests {
 
         long accountId = 86745912L;
         PlayerProfile profile = new PlayerProfile(
-                new PlayerProfile.Profile(accountId, "Arteezy", null, null, "CA"),
+                new PlayerProfile.Profile(accountId, "Arteezy", "https://example.com/rtz.png",
+                        "https://steamcommunity.com/id/arteezy", "CA"),
                 80,
                 5
         );
+        List<RecentMatch> matches = List.of(
+                new RecentMatch(9001L, 0, true, 2200, 22, 7, 1, 1730000000L, 12, 2, 10, 720, 810, 2)
+        );
+        List<PeerStat> peers = List.of(
+                new PeerStat(101L, "Cr1t-", "https://example.com/crit.png", 10, 8, 1730000000L),
+                new PeerStat(102L, "Bulba", "https://example.com/bulba.png", 10, 3, 1730000000L)
+        );
+        Map<Integer, HeroInfo> heroes = Map.of(
+                1, new HeroInfo(1, "npc_dota_hero_antimage", "Anti-Mage", "agi", "Melee",
+                        List.of("Carry"), "/apps/dota2/images/dota_react/heroes/antimage.png", null)
+        );
+
         when(openDotaClient.fetchPlayerProfile(accountId)).thenReturn(profile);
-        when(openDotaClient.fetchRecentMatches(accountId)).thenReturn(List.of());
-        when(openDotaClient.fetchPlayerPeers(accountId)).thenReturn(List.of());
-        when(openDotaClient.fetchHeroes()).thenReturn(Map.of());
+        when(openDotaClient.fetchRecentMatches(accountId)).thenReturn(matches);
+        when(openDotaClient.fetchPlayerPeers(accountId)).thenReturn(peers);
+        when(openDotaClient.fetchHeroes()).thenReturn(heroes);
 
         mockMvc.perform(get("/player/{id}", accountId))
                 .andExpect(status().isOk())
                 .andExpect(view().name("dashboard"))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Arteezy")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Immortal #5")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Immortal #5")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Cr1t-")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Bulba")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Anti-Mage")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("fetchpriority=\"high\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("\u2014"))));
     }
 }
