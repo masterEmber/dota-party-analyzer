@@ -1,0 +1,18 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: dota-party-analyzer
+  thymeleaf:
+    cache: false
+
+opendota:
+  api:
+    base-url: https://api.opendota.com/api
+    connect-timeout-seconds: 5
+    read-timeout-seconds: 10
+
+logging:
+  level:
+    com.dimas.dotaanalyzer: INFO

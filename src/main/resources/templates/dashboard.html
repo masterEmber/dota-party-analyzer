@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="id" class="dark" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${dashboard != null} ? ${dashboard.profile().displayName()} + ' — Dota 2 Party Analyzer' : 'Dota 2 Post-Match Tracker & Party Analyzer'">
+        Dota 2 Post-Match Tracker &amp; Party Analyzer
+    </title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        radiant: '#22c55e',
+                        dire: '#ef4444'
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen antialiased selection:bg-amber-500/30 selection:text-amber-200">
+
+<!-- Top Navbar & Search -->
+<header class="border-b border-slate-800/80 bg-slate-900/70 backdrop-blur sticky top-0 z-20">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <a th:href="@{/}" class="flex items-center gap-3 group">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 to-amber-500 flex items-center justify-center font-black text-white shadow-lg shadow-red-900/30">
+                D2
+            </div>
+            <div>
+                <h1 class="text-lg font-bold tracking-tight text-white group-hover:text-amber-400 transition">
+                    Dota 2 Party Analyzer
+                </h1>
+                <p class="text-xs text-slate-400">Post-Match Tracker &amp; Teammate Win Rate</p>
+            </div>
+        </a>
+
+        <form th:action="@{/}" method="get" class="flex w-full md:w-auto items-center gap-2">
+            <div class="relative flex-1 md:w-72">
+                <input type="text"
+                       name="accountId"
+                       th:value="${searchAccountId}"
+                       placeholder="Masukkan Steam32 Account ID..."
+                       required
+                       inputmode="numeric"
+                       class="w-full rounded-lg bg-slate-950 border border-slate-700 px-3.5 py-2 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition">
+            </div>
+            <button type="submit"
+                    class="rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-sm px-4 py-2 transition shadow-sm cursor-pointer">
+                Analyze
+            </button>
+        </form>
+    </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+    <!-- Error Alert -->
+    <div th:if="${errorMessage != null}"
+         class="rounded-xl border border-rose-500/40 bg-rose-950/40 p-4 flex items-start gap-3">
+        <span class="text-rose-400 font-bold text-lg leading-none">!</span>
+        <div class="text-sm text-rose-200">
+            <p class="font-semibold text-rose-300">Gagal memuat data pemain</p>
+            <p class="mt-0.5" th:text="${errorMessage}">Error details</p>
+        </div>
+    </div>
+
+    <!-- Landing State -->
+    <section th:if="${dashboard == null}"
+             class="rounded-2xl border border-slate-800 bg-slate-900/60 p-8 sm:p-12 text-center max-w-3xl mx-auto">
+        <div class="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-300 mb-4">
+            Powered by OpenDota API &amp; Caffeine Cache
+        </div>
+        <h2 class="text-2xl sm:text-3xl font-bold text-white tracking-tight">
+            Cek Performa 20 Match Terakhir &amp; Teman Mabar Paling Hoki
+        </h2>
+        <p class="mt-3 text-slate-400 text-sm sm:text-base max-w-xl mx-auto">
+            Masukkan <span class="text-slate-200 font-medium">Steam32 Account ID</span> (Friend ID di profil Dota 2)
+            untuk melihat statistik 20 match terakhir, daftar 15 teman mabar terbanyak, serta siapa
+            <span class="text-emerald-400 font-medium">Best Duo</span> dan
+            <span class="text-rose-400 font-medium">Cursed Duo</span> kamu (minimal 5 game bareng).
+        </p>
+
+        <div class="mt-6 flex flex-wrap items-center justify-center gap-2 text-xs">
+            <span class="text-slate-500 mr-1">Coba contoh akun:</span>
+            <a th:href="@{/player/86745912}"
+               class="rounded-lg border border-slate-700 bg-slate-800/80 hover:border-amber-500/60 hover:text-amber-300 px-3 py-1.5 text-slate-300 transition">
+                Arteezy (86745912)
+            </a>
+            <a th:href="@{/player/105248644}"
+               class="rounded-lg border border-slate-700 bg-slate-800/80 hover:border-amber-500/60 hover:text-amber-300 px-3 py-1.5 text-slate-300 transition">
+                Miracle- (105248644)
+            </a>
+            <a th:href="@{/player/70388657}"
+               class="rounded-lg border border-slate-700 bg-slate-800/80 hover:border-amber-500/60 hover:text-amber-300 px-3 py-1.5 text-slate-300 transition">
+                Dendi (70388657)
+            </a>
+        </div>
+    </section>
+
+    <!-- Dashboard Content -->
+    <div th:if="${dashboard != null}" class="space-y-8">
+
+        <!-- Row 1: Profile Card + 20-Match Summary -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Player Profile & Rank Card -->
+            <div class="rounded-2xl border border-slate-800 bg-slate-900/70 p-6 flex items-center gap-5">
+                <img th:if="${dashboard.profile().profile() != null and dashboard.profile().profile().avatarFull() != null}"
+                     th:src="${dashboard.profile().profile().avatarFull()}"
+                     th:alt="${dashboard.profile().displayName()}"
+                     class="w-20 h-20 rounded-2xl border-2 border-slate-700 object-cover shrink-0 bg-slate-800">
+                <div th:if="${dashboard.profile().profile() == null or dashboard.profile().profile().avatarFull() == null}"
+                     class="w-20 h-20 rounded-2xl border-2 border-slate-700 bg-slate-800 flex items-center justify-center text-2xl font-bold text-slate-400 shrink-0">
+                    ?
+                </div>
+                <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <h2 class="text-xl font-bold text-white truncate"
+                            th:text="${dashboard.profile().displayName()}">Player Name</h2>
+                        <span class="inline-flex items-center rounded-md bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 text-xs font-semibold text-amber-300"
+                              th:text="${dashboard.profile().rankName()}">Ancient 4</span>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">
+                        Steam32 ID: <span class="font-mono text-slate-300" th:text="${dashboard.accountId()}">86745912</span>
+                    </p>
+                    <div class="mt-3 flex items-center gap-3 text-xs">
+                        <a th:href="'https://www.opendota.com/players/' + ${dashboard.accountId()}"
+                           target="_blank" rel="noopener noreferrer"
+                           class="text-sky-400 hover:text-sky-300 underline underline-offset-2">
+                            OpenDota
+                        </a>
+                        <a th:if="${dashboard.profile().profile() != null and dashboard.profile().profile().profileUrl() != null}"
+                           th:href="${dashboard.profile().profile().profileUrl()}"
+                           target="_blank" rel="noopener noreferrer"
+                           class="text-slate-400 hover:text-slate-200 underline underline-offset-2">
+                            Steam Profile
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 20-Match Summary Card -->
+            <div class="lg:col-span-2 rounded-2xl border border-slate-800 bg-slate-900/70 p-6 flex flex-col justify-between">
+                <div class="flex items-center justify-between gap-4">
+                    <div>
+                        <p class="text-xs font-medium uppercase tracking-wider text-slate-400">
+                            Ringkasan <span th:text="${dashboard.totalRecentGames()}">20</span> Match Terakhir
+                        </p>
+                        <div class="mt-1 flex items-baseline gap-3">
+                            <span class="text-3xl font-extrabold text-white"
+                                  th:text="${dashboard.formattedRecentWinRate()}">55.0%</span>
+                            <span class="text-sm font-semibold">
+                                <span class="text-emerald-400" th:text="${dashboard.recentWins()} + 'W'">11W</span>
+                                <span class="text-slate-500 mx-1">-</span>
+                                <span class="text-rose-400" th:text="${dashboard.recentLosses()} + 'L'">9L</span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs font-medium uppercase tracking-wider text-slate-400">Rata-rata K / D / A</p>
+                        <p class="mt-1 text-xl font-bold font-mono text-slate-200"
+                           th:text="${dashboard.formattedAvgKda()}">8.5 / 4.2 / 11.3</p>
+                    </div>
+                </div>
+
+                <!-- Win Rate Bar -->
+                <div class="mt-4">
+                    <div class="h-2.5 w-full rounded-full bg-rose-500/30 overflow-hidden">
+                        <div class="h-full rounded-full bg-emerald-500 transition-all"
+                             th:style="'width: ' + ${dashboard.recentWinRate()} + '%'"></div>
+                    </div>
+                    <div class="mt-1.5 flex justify-between text-xs text-slate-500">
+                        <span>Radiant / Win</span>
+                        <span>Dire / Loss</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Row 2: Best Duo & Cursed Duo Highlights -->
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Best Duo -->
+            <div class="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-950/40 via-slate-900/80 to-slate-900/80 p-6">
+                <div class="flex items-center justify-between">
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 text-xs font-semibold text-emerald-300">
+                        Best Duo (Min. 5 Game)
+                    </span>
+                    <span th:if="${dashboard.bestDuo() != null}"
+                          class="text-2xl font-extrabold text-emerald-400"
+                          th:text="${dashboard.bestDuo().formattedWinRate()}">72.5%</span>
+                </div>
+
+                <div th:if="${dashboard.bestDuo() != null}" class="mt-4 flex items-center gap-4">
+                    <img th:if="${dashboard.bestDuo().avatarFull() != null}"
+                         th:src="${dashboard.bestDuo().avatarFull()}"
+                         th:alt="${dashboard.bestDuo().displayName()}"
+                         class="w-14 h-14 rounded-xl border border-emerald-500/40 object-cover bg-slate-800">
+                    <div class="min-w-0 flex-1">
+                        <a th:href="@{/player/{id}(id=${dashboard.bestDuo().accountId()})}"
+                           class="text-lg font-bold text-white hover:text-emerald-300 transition truncate block"
+                           th:text="${dashboard.bestDuo().displayName()}">Best Friend</a>
+                        <p class="text-sm text-slate-400 mt-0.5">
+                            <span class="text-slate-200 font-medium" th:text="${dashboard.bestDuo().withGames()}">20</span> game bareng
+                            (<span class="text-emerald-400" th:text="${dashboard.bestDuo().withWin()} + 'W'">15W</span> -
+                            <span class="text-rose-400" th:text="${dashboard.bestDuo().losses()} + 'L'">5L</span>)
+                        </p>
+                    </div>
+                </div>
+
+                <p th:if="${dashboard.bestDuo() == null}" class="mt-4 text-sm text-slate-400">
+                    Belum ada teman mabar dengan minimal 5 game bersama untuk kategori Best Duo.
+                </p>
+            </div>
+
+            <!-- Cursed Duo -->
+            <div class="rounded-2xl border border-rose-500/30 bg-gradient-to-br from-rose-950/40 via-slate-900/80 to-slate-900/80 p-6">
+                <div class="flex items-center justify-between">
+                    <span class="inline-flex items-center gap-1.5 rounded-full bg-rose-500/15 border border-rose-500/30 px-3 py-1 text-xs font-semibold text-rose-300">
+                        Cursed Duo (Min. 5 Game)
+                    </span>
+                    <span th:if="${dashboard.cursedDuo() != null}"
+                          class="text-2xl font-extrabold text-rose-400"
+                          th:text="${dashboard.cursedDuo().formattedWinRate()}">28.0%</span>
+                </div>
+
+                <div th:if="${dashboard.cursedDuo() != null}" class="mt-4 flex items-center gap-4">
+                    <img th:if="${dashboard.cursedDuo().avatarFull() != null}"
+                         th:src="${dashboard.cursedDuo().avatarFull()}"
+                         th:alt="${dashboard.cursedDuo().displayName()}"
+                         class="w-14 h-14 rounded-xl border border-rose-500/40 object-cover bg-slate-800">
+                    <div class="min-w-0 flex-1">
+                        <a th:href="@{/player/{id}(id=${dashboard.cursedDuo().accountId()})}"
+                           class="text-lg font-bold text-white hover:text-rose-300 transition truncate block"
+                           th:text="${dashboard.cursedDuo().displayName()}">Cursed Friend</a>
+                        <p class="text-sm text-slate-400 mt-0.5">
+                            <span class="text-slate-200 font-medium" th:text="${dashboard.cursedDuo().withGames()}">14</span> game bareng
+                            (<span class="text-emerald-400" th:text="${dashboard.cursedDuo().withWin()} + 'W'">4W</span> -
+                            <span class="text-rose-400" th:text="${dashboard.cursedDuo().losses()} + 'L'">10L</span>)
+                        </p>
+                    </div>
+                </div>
+
+                <p th:if="${dashboard.cursedDuo() == null}" class="mt-4 text-sm text-slate-400">
+                    Belum ada teman mabar dengan minimal 5 game bersama untuk kategori Cursed Duo.
+                </p>
+            </div>
+        </section>
+
+        <!-- Row 3: Party Analyzer Table (Top 15 Peers) -->
+        <section class="rounded-2xl border border-slate-800 bg-slate-900/70 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+                <div>
+                    <h3 class="text-base font-bold text-white">Party Analyzer — Top 15 Teman Mabar</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Diurutkan berdasarkan jumlah game bermain satu tim</p>
+                </div>
+                <span class="text-xs text-slate-500" th:text="${dashboard.topPeers().size()} + ' pemain'">15 pemain</span>
+            </div>
+
+            <div th:if="${dashboard.topPeers().isEmpty()}" class="p-6 text-sm text-slate-400">
+                Tidak ada data teman mabar (peers) yang ditemukan untuk akun ini.
+            </div>
+
+            <div th:if="${!dashboard.topPeers().isEmpty()}" class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-slate-950/60 text-xs uppercase text-slate-400 border-b border-slate-800">
+                    <tr>
+                        <th class="px-6 py-3 w-12">#</th>
+                        <th class="px-6 py-3">Pemain</th>
+                        <th class="px-6 py-3 text-right">Games</th>
+                        <th class="px-6 py-3 text-right">Win / Loss</th>
+                        <th class="px-6 py-3 w-52">Win Rate</th>
+                    </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/70">
+                    <tr th:each="peer, stat : ${dashboard.topPeers()}"
+                        class="hover:bg-slate-800/40 transition">
+                        <td class="px-6 py-3.5 text-slate-500 font-mono" th:text="${stat.count}">1</td>
+                        <td class="px-6 py-3.5">
+                            <a th:href="@{/player/{id}(id=${peer.accountId()})}"
+                               class="flex items-center gap-3 group">
+                                <img th:if="${peer.avatarFull() != null}"
+                                     th:src="${peer.avatarFull()}"
+                                     th:alt="${peer.displayName()}"
+                                     class="w-8 h-8 rounded-lg object-cover bg-slate-800 border border-slate-700">
+                                <span class="font-medium text-slate-200 group-hover:text-amber-300 transition"
+                                      th:text="${peer.displayName()}">Teammate</span>
+                            </a>
+                        </td>
+                        <td class="px-6 py-3.5 text-right font-mono text-slate-200" th:text="${peer.withGames()}">25</td>
+                        <td class="px-6 py-3.5 text-right font-mono">
+                            <span class="text-emerald-400" th:text="${peer.withWin()} + 'W'">15W</span>
+                            <span class="text-slate-600 mx-1">/</span>
+                            <span class="text-rose-400" th:text="${peer.losses()} + 'L'">10L</span>
+                        </td>
+                        <td class="px-6 py-3.5">
+                            <div class="flex items-center gap-3">
+                                <div class="flex-1 h-2 rounded-full bg-slate-800 overflow-hidden">
+                                    <div class="h-full rounded-full"
+                                         th:classappend="${peer.winRate() >= 50.0} ? 'bg-emerald-500' : 'bg-rose-500'"
+                                         th:style="'width: ' + ${peer.winRate()} + '%'"></div>
+                                </div>
+                                <span class="w-14 text-right font-mono font-semibold"
+                                      th:classappend="${peer.winRate() >= 50.0} ? 'text-emerald-400' : 'text-rose-400'"
+                                      th:text="${peer.formattedWinRate()}">60.0%</span>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Row 4: Recent Matches Table -->
+        <section class="rounded-2xl border border-slate-800 bg-slate-900/70 overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-800 flex items-center justify-between">
+                <div>
+                    <h3 class="text-base font-bold text-white">Recent Matches</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Riwayat maksimal 20 pertandingan terakhir</p>
+                </div>
+                <span class="text-xs text-slate-500" th:text="${dashboard.recentMatches().size()} + ' match'">20 match</span>
+            </div>
+
+            <div th:if="${dashboard.recentMatches().isEmpty()}" class="p-6 text-sm text-slate-400">
+                Tidak ada riwayat pertandingan terbaru yang ditemukan.
+            </div>
+
+            <div th:if="${!dashboard.recentMatches().isEmpty()}" class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-slate-950/60 text-xs uppercase text-slate-400 border-b border-slate-800">
+                    <tr>
+                        <th class="px-6 py-3">Hero</th>
+                        <th class="px-6 py-3">Hasil</th>
+                        <th class="px-6 py-3">K / D / A</th>
+                        <th class="px-6 py-3 text-right">GPM / XPM</th>
+                        <th class="px-6 py-3 text-right">Durasi</th>
+                        <th class="px-6 py-3">Party</th>
+                        <th class="px-6 py-3 text-right">Match</th>
+                    </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/70">
+                    <tr th:each="match : ${dashboard.recentMatches()}"
+                        class="hover:bg-slate-800/40 transition">
+                        <td class="px-6 py-3.5">
+                            <div class="flex items-center gap-3">
+                                <img th:if="${!#strings.isEmpty(dashboard.heroImageUrl(match.heroId()))}"
+                                     th:src="${dashboard.heroImageUrl(match.heroId())}"
+                                     th:alt="${dashboard.heroName(match.heroId())}"
+                                     class="w-12 h-7 rounded object-cover border border-slate-700 bg-slate-800 shrink-0">
+                                <div>
+                                    <p class="font-medium text-slate-100"
+                                       th:text="${dashboard.heroName(match.heroId())}">Anti-Mage</p>
+                                    <p class="text-xs text-slate-500" th:text="${match.formattedStartTime()}">22 Nov 2026</p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-3.5">
+                            <span th:if="${match.isWin()}"
+                                  class="inline-flex items-center rounded-md bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-semibold text-emerald-400">
+                                WIN
+                            </span>
+                            <span th:if="${!match.isWin()}"
+                                  class="inline-flex items-center rounded-md bg-rose-500/15 border border-rose-500/30 px-2.5 py-0.5 text-xs font-semibold text-rose-400">
+                                LOSS
+                            </span>
+                        </td>
+                        <td class="px-6 py-3.5 font-mono">
+                            <span class="text-slate-100"
+                                  th:text="${match.kills()} + ' / ' + ${match.deaths()} + ' / ' + ${match.assists()}">10 / 2 / 12</span>
+                            <span class="block text-xs text-slate-500" th:text="'KDA ' + ${match.formattedKdaRatio()}">KDA 11.00</span>
+                        </td>
+                        <td class="px-6 py-3.5 text-right font-mono text-slate-300">
+                            <span th:text="${match.goldPerMin()}">650</span>
+                            <span class="text-slate-600">/</span>
+                            <span th:text="${match.xpPerMin()}">720</span>
+                        </td>
+                        <td class="px-6 py-3.5 text-right font-mono text-slate-300"
+                            th:text="${match.formattedDuration()}">38:42</td>
+                        <td class="px-6 py-3.5 text-xs text-slate-400"
+                            th:text="${match.partyLabel()}">Party (3)</td>
+                        <td class="px-6 py-3.5 text-right">
+                            <a th:href="'https://www.opendota.com/matches/' + ${match.matchId()}"
+                               target="_blank" rel="noopener noreferrer"
+                               class="font-mono text-xs text-sky-400 hover:text-sky-300 underline underline-offset-2"
+                               th:text="${match.matchId()}">8000000000</a>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</main>
+
+<footer class="border-t border-slate-900 mt-12 py-6 text-center text-xs text-slate-500">
+    Dota 2 Post-Match Tracker &amp; Party Analyzer &bull; Data provided by OpenDota API
+</footer>
+
+</body>
+</html>
